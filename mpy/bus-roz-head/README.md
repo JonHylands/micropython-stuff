@@ -7,3 +7,5 @@ The board is in the head of my quad walking robot Roz:
 The code in main.py is split into two main classes, plus some support classes. The first class, BioloidDevice, implements the code needed for the stm32 to sit on the bus, and respond to commands and queries. Notice that this is an incomplete implementation - we don't support everything, but enough to make it work.
 
 The second class, HeadBoard, implements the code that gathers data from the sensors and populates the control table of the BioloidDevice.
+
+Big thanks to my brother, Dave (https://github.com/dhylands) who wrote stm_uart_port.py, which allows stm32f405 devices to both receive and transmit as a bus device on a single-wire half-duplex serial bus.
