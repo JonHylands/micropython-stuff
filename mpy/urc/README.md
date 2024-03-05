@@ -6,7 +6,7 @@ This folder holds the code for my universal robot configurer. It is in a very pr
 
 This is a wearable device based on a [Waveshare ESP32-S3 Round Touch LCD](https://www.waveshare.com/esp32-s3-touch-lcd-1.28.htm).
 
-The code allows you to build a complex touch-based windowing system for this device. You can easily create windows with widgets like buttons and labels and lists. You can scroll between sets of windows. I'll be adding a bunch of documentaiton on how to use it, but for now look at main.py, admin.py, and rover.py for an example.
+The code allows you to build a complex touch-based windowing system for this device. You can easily create windows with widgets like buttons and labels and lists. You can scroll between sets of windows. I'll be adding a bunch of documentation on how to use it, but for now look at main.py, admin.py, and rover.py for an example. Everything in this GUI is based off the touch screen pin interrupt, with real-time updates happening via hardware timers. The main loop sits in a loop and calls time.sleep_ms(1000).
 
 ![](images/PXL_20240304_235733175.jpg)
 
