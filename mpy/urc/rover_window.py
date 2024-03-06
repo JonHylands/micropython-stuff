@@ -5,7 +5,6 @@ import NotoSans_15 as font_15
 import NotoSans_20 as font_20
 import NotoSans_25 as font_25
 import NotoSans_32 as font_32
-import radiostars_32 as rfont_32
 from machine import Pin, Timer
 import time
 import gc
@@ -81,7 +80,7 @@ class RoverChooseWindow:
 
     def clicked_sensors(self):
         print('Rover Sensors')
-        # RoverMissionWindow()
+        RoverSensorWindow(self.window_manager, self.display)
 
     def clicked_motors(self):
         print('Rover Motors')
@@ -400,8 +399,10 @@ class RoverMission:
 
 
 class RoverSensorWindow:
-    def __init__(self, display):
-        self.window = Window(display, "Sensors")
+    def __init__(self, window_manager, display):
+        self.window_manager = window_manager
+        self.display = display
+        self.window = Window(self.display, "Sensors")
 
         top_view = View("Top", Point(0, 0), Point(240, 58))
         middle_view = View("Middle", Point(40,58), Point(160, 124))
@@ -421,11 +422,12 @@ class RoverSensorWindow:
         self.vlist.register_click_handler(self.list_click)
 
         text_height = font_25.HEIGHT
-        width = display.text_width("CHOOSE", font_25) + 10
-        x = display.SCREEN_WIDTH // 2 - (width // 2)
+        width = self.display.text_width("CHOOSE", font_25) + 10
+        x = self.display.SCREEN_WIDTH // 2 - (width // 2)
         button = VisualButton(Rectangle(Point(x, 5), Point(width, text_height + 4)), "CHOOSE", font_25, Color.GREEN)
         bottom_view.add_component(button)
         button.register_click_handler(self.button_click)
+        self.window_manager.push_window(self.window)
 
     def button_click(self):
         print('CHOOSE button clicked on Sensor Window')

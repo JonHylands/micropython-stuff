@@ -5,7 +5,6 @@ import NotoSans_15 as font_15
 import NotoSans_20 as font_20
 import NotoSans_25 as font_25
 import NotoSans_32 as font_32
-import radiostars_32 as rfont_32
 import time
 import gc
 from machine import Pin, Timer, ADC
@@ -45,8 +44,9 @@ class AdminWindow:
         main_view.add_component(self.charging_label)
 
         self.battery = ADC(Pin(1))
-        self.battery.atten(ADC.ATTN_11DB)
+        self.battery.atten(ADC.ATTN_11DB)  # get the full range 0 - 3.3v
 
+        # Make an invisible button
         button = VisualButton(Rectangle(Point(0, 78), Point(160, 80)), '', font_15, Color.CYAN, False)
         main_view.add_component(button)
         button.register_click_handler(self.enter_urc)
@@ -55,25 +55,14 @@ class AdminWindow:
         print('Entering Robots from Admin')
         self.window_manager.push_window_chain(self.main_chain)
 
-    def old_get_battery_level(self):
-        millivolts = 0
-        for index in range(10):
-            millivolts += self.battery.read_uv() / 1000
-        millivolts /= 10
-        level = (millivolts - self.BATTERY_DEFICIT_VOL) * 100 / (self.BATTERY_FULL_VOL - self.BATTERY_DEFICIT_VOL)
-        level = int(level)
-        if level < 0:
-            level = 0
-        if level > 100:
-            level = 100
-        return level
-
     def get_battery_level(self):
         millivolts = 0
         for index in range(10):
             millivolts += self.battery.read_uv() / 1000
             time.sleep_us(100)
         millivolts /= 10
+        # This is supposed to have a 200K/100K voltage divider, but in reality
+        # the resistors aren't quite that (on my board, the values are off by about 8%)
         volts = millivolts / 1000 * 3 * (3 / 2.762)
         return volts
 

@@ -1,11 +1,10 @@
 
 
 from machine import Pin, I2C, Timer
-import binascii
 import micropython
 import time
 from fsm import State, FiniteStateMachine
-from util import Point, Rectangle
+from util import *
 from cst816 import CST816
 
 
@@ -49,21 +48,20 @@ class TouchEvent:
 class TouchManager:
 
     # TOUCH_ID = 0x2E   # Seeed Studio Round Display
-    TOUCH_ID = 0x15     # Waveshare ESP32-S3 Round Display
+    TOUCH_ID = 0x15     # Waveshare ESP32-S3 Round Touch Display
     TOUCH_MAX_POINTS_NUM = 1
     TOUCH_READ_POINT_LEN = 5
 
-    # Failsafe Handheld
+    # Waveshare ESP32-S3 Round Touch Display
     TOUCH_I2C_PORT = 0
     TOUCH_INTERRUPT_PIN = 5
     TOUCH_SDA_PIN = 6
     TOUCH_SCL_PIN = 7
 
+    # Raw event types from the touch chip
     TOUCH_NONE = 0
     TOUCH_DOWN = 1
     TOUCH_UP = 2
-
-    TOUCH_TYPES = ['None', 'Down', 'Up']
 
     LONG_TOUCH_THRESHOLD = 1000  # ms
     DOUBLE_TOUCH_THRESHOLD = 500  # ms
@@ -100,36 +98,6 @@ class TouchManager:
         # On the Seeed Studio round display, you need to use IRQ_FALLING
         self.touch_interrupt.irq(handler=self.touch_callback, trigger=Pin.IRQ_RISING)
 
-    # The user has lifted their finger, inform the setup callback
-    def setup_screensaver_timer(self):
-        if self.screensaver_enabled and self.setup_screensaver_timer_callback is not None:
-            self.setup_screensaver_timer_callback()
-
-    # The user has touched the screen, inform the cancel callback
-    def cancel_screensaver_timer(self):
-        if self.screensaver_enabled and self.cancel_screensaver_timer_callback is not None:
-            self.cancel_screensaver_timer_callback()
-
-    # Register a callback that will turn on the screen
-    def turn_on_screen_with(self, callback):
-        self.screen_on_callback = callback
-
-    # Register a callback that will be called when there is user interaction
-    def cancel_screensaver_timer_with(self, callback):
-        self.cancel_screensaver_timer_callback = callback
-
-    # Register a callback that will be called when user interaction stops
-    def setup_screensaver_timer_with(self, callback):
-        self.setup_screensaver_timer_callback = callback
-
-    # Globally enable the screensaver
-    def enable_screensaver(self):
-        self.screensaver_enabled = True
-
-    # Globally disable the screensave
-    def disable_screensaver(self):
-        self.screensaver_enabled = False
-
     # Touch pin ISR callback
     def touch_callback(self, pin):
         self.touch_interrupt_time = time.ticks_ms()
@@ -162,6 +130,14 @@ class TouchManager:
                 micropython.schedule(self.touch_handler, self)
             except RuntimeError:
                 pass
+
+    # Touch handler callback from the ISR, using micropython.schedule()
+    # Mark the system as not available while the FSM executes
+    def handle_touch(self, ignore):
+        self.handler_available = False
+        self.fsm.update()
+        self.handler_available = True
+        self.TouchScheduleCounter -= 1
 
     # This shuts off the touch interrupt entirely
     def deregister_touch_handler(self):
@@ -197,13 +173,35 @@ class TouchManager:
                 local_touch_event.update_values(event_mode, local_x, local_y)
                 callback(local_touch_event)
 
-    # Touch handler callback from the ISR, using micropython.schedule()
-    # Mark the system as not available while the FSM executes
-    def handle_touch(self, ignore):
-        self.handler_available = False
-        self.fsm.update()
-        self.handler_available = True
-        self.TouchScheduleCounter -= 1
+    # The user has lifted their finger, inform the setup callback
+    def setup_screensaver_timer(self):
+        if self.screensaver_enabled and self.setup_screensaver_timer_callback is not None:
+            self.setup_screensaver_timer_callback()
+
+    # The user has touched the screen, inform the cancel callback
+    def cancel_screensaver_timer(self):
+        if self.screensaver_enabled and self.cancel_screensaver_timer_callback is not None:
+            self.cancel_screensaver_timer_callback()
+
+    # Register a callback that will turn on the screen
+    def turn_on_screen_with(self, callback):
+        self.screen_on_callback = callback
+
+    # Register a callback that will be called when there is user interaction
+    def cancel_screensaver_timer_with(self, callback):
+        self.cancel_screensaver_timer_callback = callback
+
+    # Register a callback that will be called when user interaction stops
+    def setup_screensaver_timer_with(self, callback):
+        self.setup_screensaver_timer_callback = callback
+
+    # Globally enable the screensaver
+    def enable_screensaver(self):
+        self.screensaver_enabled = True
+
+    # Globally disable the screensave
+    def disable_screensaver(self):
+        self.screensaver_enabled = False
 
     # Set up the touch FSM
     def initialize_touch_fsm(self):

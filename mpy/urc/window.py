@@ -215,26 +215,26 @@ class WindowManager:
         # Make sure the screen is on
         self.display.turn_on_screen()
  
-    # Enable the screensaver(i.e., turn it on).
+    # Enable the screensaver(i.e., turn on the functionality).
     # Tell the touch manager.
     def enable_screensaver(self):
         self.screensaver_enabled = True
         self.touch_manager.enable_screensaver()
  
-    # Turn on the screensaver (i.e., turn off the screen)
-    # This is called from the timer expiring
+    # Callback from the window manager when the screensaver timer expires.
     def screensaver_callback(self, timer):
         self.display.turn_off_screen()
         self.current_window().screensaver_turned_on()
         self.touch_manager.turn_on_screen_with(self.screensaver_cancelled_callback)
 
-    # This is called from the TouchManager when the user touches a blacked out screen
+    # Callback from the touch manager when the user touches a blacked out screen
+    # The screensaver was active (screen was off). Turn it back on.
     def screensaver_cancelled_callback(self):
         self.display.turn_on_screen()
         self.current_window().screensaver_turned_off()
         self.reinstate_screensaver_timer_callback()
 
-    # The user is actively interacting with the screen. Cancel the timer.
+    # Callback from the touch manager. The user is actively interacting with the screen. Cancel the timer.
     def cancel_screensaver_timer_callback(self):
         if not self.screensaver_enabled:
             return
@@ -243,7 +243,8 @@ class WindowManager:
             self.screensaver_timer.deinit()
             self.screensaver_timer = None
 
-    # The user has stopped interacting with the screen. Restart the timer.
+    # Callback from the touch manager, but also called directly from the window manager.
+    # The user has stopped interacting with the screen and/or we need to restart the timer.
     def reinstate_screensaver_timer_callback(self):
         if not self.screensaver_enabled:
             return
@@ -282,26 +283,6 @@ class Window:
     def register_screensaver_deactivate(self, callback):
         self.screensaver_deactivate = callback
 
-    # The window is about to close. If anyone registered a callback, execute it.
-    def about_to_close(self):
-        if self.close_handler is not None:
-            self.close_handler(self)
-
-    # The screensaver turned on. Execute the callback if it is there.
-    def screensaver_turned_on(self):
-        if self.screensaver_activate is not None:
-            self.screensaver_activate(self)
-
-    # The screensaver turned off. Execute the callback if it is there.
-    def screensaver_turned_off(self):
-        if self.screensaver_deactivate is not None:
-            self.screensaver_deactivate(self)
-
-    # The window was just opened. Execute the callback if it is there.
-    def activate(self):
-        if self.activate_handler is not None:
-            self.activate_handler(self)
-
     # Add a view to the window.
     def add_view(self, view):
         self.views.append(view)
@@ -336,9 +317,29 @@ class Window:
                 return True
         return False
 
+    # The window is about to close. If anyone registered a callback, execute it.
+    def about_to_close(self):
+        if self.close_handler is not None:
+            self.close_handler(self)
+
+    # The screensaver turned on. Execute the callback if it is there.
+    def screensaver_turned_on(self):
+        if self.screensaver_activate is not None:
+            self.screensaver_activate(self)
+
+    # The screensaver turned off. Execute the callback if it is there.
+    def screensaver_turned_off(self):
+        if self.screensaver_deactivate is not None:
+            self.screensaver_deactivate(self)
+
+    # The window was just opened. Execute the callback if it is there.
+    def activate(self):
+        if self.activate_handler is not None:
+            self.activate_handler(self)
+
 
 # A View represents an area of the window. Visual Components are added to views,
-# and their coordinate system is local to the view's origin.
+# and their coordinate system is local to the view's origin. Views can overlap.
 class View:
     def __init__(self, name, origin, extent):
         self.name = name
@@ -390,6 +391,8 @@ class View:
 # and forwarding component-level events to whoever registers for them.
 # Most visual components have a 'display_box' attribute that is set the first
 # time it is drawn - this box is a Rectangle in screen coordinates.
+# In general, components can overlap, but for a given point on the screen,
+# there should be only one component that does touch interaction.
 class VisualComponent:
     def __init__(self, origin):
         self.origin = origin

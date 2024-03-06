@@ -1,17 +1,7 @@
 
 from machine import Pin, SPI
 import gc9a01
-import math
 import time
-
-#
-# GP5 - LCD CS
-# GP6 - LCD DC
-# GP14 - Touchscreen SDA
-# GP15 - Touchscreen SCL
-# GP7 - Touchscreen interrupt line
-# GP2 - SCK
-# GP3 - MOSI
 
 
 class Display:
@@ -19,7 +9,7 @@ class Display:
     SCREEN_WIDTH = 240
     SCREEN_HEIGHT = 240
 
-    # Failsafe Handheld
+    # Waveshare ESP32-S3 Touch Screen
     LCD_SPI_PORT = 2
     LCD_SCK_PIN = 10
     LCD_MOSI_PIN = 11
@@ -36,7 +26,7 @@ class Display:
 
         spi = SPI(Display.LCD_SPI_PORT, baudrate=40000000, sck=Pin(Display.LCD_SCK_PIN, Pin.OUT), mosi=Pin(Display.LCD_MOSI_PIN, Pin.OUT))
         self.backlight_pin = Pin(Display.LCD_BL_PIN, Pin.OUT)
-        self.screen = gc9a01.GC9A01(spi, 240, 240, reset=Pin(Display.LCD_RST_PIN, Pin.OUT), dc=Pin(Display.LCD_DC_PIN, Pin.OUT), cs=Pin(Display.LCD_CS_PIN, Pin.OUT), backlight=self.backlight_pin, rotation=0)
+        self.screen = gc9a01.GC9A01(spi, Display.SCREEN_WIDTH, Display.SCREEN_HEIGHT, reset=Pin(Display.LCD_RST_PIN, Pin.OUT), dc=Pin(Display.LCD_DC_PIN, Pin.OUT), cs=Pin(Display.LCD_CS_PIN, Pin.OUT), backlight=self.backlight_pin, rotation=0)
 
         self.screen.init()
         self.clear_screen()
