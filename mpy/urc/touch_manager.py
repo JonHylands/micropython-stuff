@@ -1,6 +1,6 @@
 
 
-from machine import Pin, I2C, Timer
+from machine import Pin
 import micropython
 import time
 from fsm import State, FiniteStateMachine
@@ -67,8 +67,6 @@ class TouchManager:
     DOUBLE_TOUCH_THRESHOLD = 500  # ms
     DRAG_THRESHOLD = 5  # pixels
 
-    TouchScheduleCounter = 0
-
     def __init__(self):
         micropython.alloc_emergency_exception_buf(100)
         self.touch_interrupt = Pin(self.TOUCH_INTERRUPT_PIN, Pin.IN, Pin.PULL_UP)
@@ -123,9 +121,6 @@ class TouchManager:
                 self.touch_position_y = self.cst816.y_point
             else:
                 self.touch_type = self.TOUCH_UP
-            self.TouchScheduleCounter += 1
-            if TouchManager.TouchScheduleCounter > 2:
-                print('Schedule called too many times')
             try:
                 micropython.schedule(self.touch_handler, self)
             except RuntimeError:
@@ -137,7 +132,6 @@ class TouchManager:
         self.handler_available = False
         self.fsm.update()
         self.handler_available = True
-        self.TouchScheduleCounter -= 1
 
     # This shuts off the touch interrupt entirely
     def deregister_touch_handler(self):

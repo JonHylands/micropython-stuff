@@ -1,4 +1,3 @@
-from display import Display
 from util import *
 from window import *
 

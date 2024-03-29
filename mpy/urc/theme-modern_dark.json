@@ -1,0 +1,14 @@
+{
+    "name": "modern_dark", 
+    "colors": {
+        "background": [0, 0, 0], 
+        "title": [255, 235, 59], 
+        "label": [0, 188, 212], 
+        "good_label": [76, 175, 80], 
+        "warning_label": [255, 193, 7], 
+        "alert_label": [244, 67, 54], 
+        "button": [96, 125, 139],
+        "list": [96, 125, 139],
+        "scroll": [0, 150, 136] 
+    }
+}

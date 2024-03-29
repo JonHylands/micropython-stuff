@@ -2,16 +2,11 @@
 # Windowing System for MicroPython
 
 from display import Display
-import NotoSans_15 as font_15
-import NotoSans_20 as font_20
-import NotoSans_25 as font_25
-import NotoSans_32 as font_32
 
 import micropython
 from util import *
 from touch_manager import TouchManager, TouchEvent
 from visual_dialog import *
-import time
 from machine import Timer
 
 
@@ -91,51 +86,44 @@ class WindowManager:
 
     # Push window chain is used to add a new 'level' to the window system
     def push_window_chain(self, window_chain):
-        print('***Pushing chain: {}'.format(window_chain.name))
+        old_current = self.current_window()
         for window in window_chain.window_list:
             # Only add bottom slider if there's a window chain to pop to
             if len(self.window_stack) > 0:
                 self.add_bottom_slider_to(window)
             if window_chain.is_scrollable():
                 self.add_side_sliders_to(window)
-        self.select_window(window_chain.current_window)
+        self.select_window(window_chain.current_window, old_current)
         self.window_stack.append(window_chain)
-        self.print_window_stack('end of push_window_chain')
 
     # The user swiped up - remove the current chain from the top of the stack
+    # If this is the last chain in the stack, I assume you're going to immediately
+    # push a new one...
     def pop_window(self, arg=None):
-        if len(self.window_stack) == 1:
-            raise LookupError('Can''t pop the last window chain')
-        else:
-            # Make sure the old current window gets notified
-            if self.current_window() is not None:
-                self.current_window().about_to_close()
-            self.print_window_stack('inside pop_window, before pop')
-            self.window_stack.pop()
-            self.print_window_stack('inside pop_window, after pop')
+        old_window = self.current_window()
+        self.window_stack.pop()
+        if len(self.window_stack) > 0:
             # This is a bit of trickery. We want to select the new window,
             # but we can't use select_window() as is because we need to pop
             # the chain in between closing the old window and selecting
             # the new one.
-            current = self.current_window()
-            self.set_current_window(None)
-            self.select_window(current)
-            self.set_current_window(current)
-            self.print_window_stack('end of pop_window')
+            self.select_window(self.current_window(), old_window)
+        else:
+            old_window.about_to_close()
+        self.print_window_stack('end of pop_window')
 
     # Pop the current chain, and decrement the schedule counter
     # This is used so we can schedule the pop, so the current drag operation finishes on the current window chain.
     # See the scroll_up() method below.
     def pop_window_special(self, arg=None):
         self.pop_window()
-        TouchManager.TouchScheduleCounter -= 1
 
     # You can only select windows from the currently active chain
-    def select_window(self, window):
+    def select_window(self, window, old_window):
         self.print_window_stack('beginning of select_window')
         # We're selecting a different window - tell the old current one it is closing
-        if self.current_window() is not None:
-            self.current_window().about_to_close()
+        if old_window is not None:
+            old_window.about_to_close()
         self.touch_manager.initialize_registry()
         window.activate()
         window.draw()
@@ -187,22 +175,21 @@ class WindowManager:
         print('scroll_up')
         callback = self.pop_window_special
         # we need to do this here so the touch drag stop handler sends touch release to us instead of the new window
-        TouchManager.TouchScheduleCounter += 1
-        if TouchManager.TouchScheduleCounter > 2:
-            print('Schedule called too many times')
         micropython.schedule(callback, 'pop')
 
     # Not sure why we don't need the above mechanism when srolling left/right
     def scroll_left(self):
         print('Scroll Left')
+        old_current = self.current_window()
         self.current_chain().scroll_left()
-        self.select_window(self.current_window())
+        self.select_window(self.current_window(), old_current)
 
     # Not sure why we don't need the above mechanism when srolling left/right
     def scroll_right(self):
         print('Scroll Right')
+        old_current = self.current_window()
         self.current_chain().scroll_right()
-        self.select_window(self.current_window())
+        self.select_window(self.current_window(), old_current)
 
     # Disable the screensaver (i.e., turn it off).
     # Tell the touch manager. Kill the timer, if it is running. Turn on the screen.
@@ -290,7 +277,7 @@ class Window:
 
     # Draw the window from scratch
     def draw(self):
-        self.screen.fill(Color.BLACK)
+        self.screen.fill(Color.BACKGROUND.as565())
         for each in self.views:
             each.draw_on(self.display)
 
@@ -409,12 +396,15 @@ class VisualComponent:
     def register_for_touch_events(self, touch_manager):
         pass
 
+    def redraw(self):
+        self.view.redraw(self)
+
 
 # VisualLabel prints a label on the screen. If you pass in a Rectangle for origin instead of a Point,
 # also draw a box around the text. If you specify center_x, ignore the x-component of origin and draw
 # the label centered horizontally in its view. No user interaction, just drawn.
 class VisualLabel(VisualComponent):
-    def __init__(self, origin, text, font, center_x=False, color=Color.WHITE, box_color=None):
+    def __init__(self, origin, text, font, center_x=False, color=None, box_color=None):
         if isinstance(origin, Rectangle):
             self.box = origin
             super().__init__(origin.origin + Point(3, 3))
@@ -423,7 +413,10 @@ class VisualLabel(VisualComponent):
             super().__init__(origin)
         self.text = text
         self.font = font
-        self.color = color
+        if color is None:
+            self.color = Color.LABEL
+        else:
+            self.color = color
         if box_color is None:
             self.box_color = self.color
         else:
@@ -435,8 +428,8 @@ class VisualLabel(VisualComponent):
         if self.box is not None:
             global_box = self.box.offset_by(view_origin)
             inner_box = global_box.inset_by(1)
-            display.screen.fill_rect(inner_box.origin.x, inner_box.origin.y, inner_box.extent.x, inner_box.extent.y, Color.BLACK)
-            display.screen.rect(global_box.left(), global_box.top(), global_box.width(), global_box.height(), self.box_color)
+            display.screen.fill_rect(inner_box.origin.x, inner_box.origin.y, inner_box.extent.x, inner_box.extent.y, Color.BACKGROUND.as565())
+            display.screen.rect(global_box.left(), global_box.top(), global_box.width(), global_box.height(), self.box_color.as565())
         if self.center_x:
             x = view_origin.x + (view_extent.x // 2) - (text_width // 2)
             y = view_origin.y + self.origin.y
@@ -482,20 +475,23 @@ class VisualJpgImage(VisualComponent):
 
 # VisualBox is like a VisualLabel with a rectangle and no text. No user interaction, just drawn.
 class VisualBox(VisualComponent):
-    def __init__(self, box, frame_color=Color.WHITE):
+    def __init__(self, box, frame_color=None):
         super().__init__(box.origin)
         self.box = box
-        self.frame_color = frame_color
+        if frame_color is None:
+            self.frame_color = Color.LABEL
+        else:
+            self.frame_color = frame_color
 
     # Draw the box. Buttons are subclasses, so also pass in an option inverted flag.
     def draw_on(self, display, view_origin, view_extent, inverted=False):
         self.display_box = Rectangle(Point(self.box.origin.x + view_origin.x, self.box.origin.y + view_origin.y), Point(self.box.extent.x, self.box.extent.y))
         inner_box = self.display_box.inset_by(1)
         if inverted:
-            display.screen.fill_rect(self.display_box.origin.x, self.display_box.origin.y, self.display_box.extent.x, self.display_box.extent.y, self.frame_color)
+            display.screen.fill_rect(self.display_box.origin.x, self.display_box.origin.y, self.display_box.extent.x, self.display_box.extent.y, self.frame_color.as565())
         else:
-            display.screen.fill_rect(inner_box.origin.x, inner_box.origin.y, inner_box.extent.x, inner_box.extent.y, Color.BLACK)
-            display.screen.rect(self.display_box.origin.x, self.display_box.origin.y, self.display_box.extent.x, self.display_box.extent.y, self.frame_color)
+            display.screen.fill_rect(inner_box.origin.x, inner_box.origin.y, inner_box.extent.x, inner_box.extent.y, Color.BACKGROUND.as565())
+            display.screen.rect(self.display_box.origin.x, self.display_box.origin.y, self.display_box.extent.x, self.display_box.extent.y, self.frame_color.as565())
 
     # Return whether the given point (in screen coordinates) is inside the box.
     def contains_point(self, point):
@@ -507,7 +503,9 @@ class VisualBox(VisualComponent):
 # Setting draw to False makes it a completely transparent button, but still
 # handles the same touch interactions.
 class VisualButton(VisualBox):
-    def __init__(self, box, text, font, color=Color.WHITE, draw=True):
+    def __init__(self, box, text, font, color=None, draw=True):
+        if color is None:
+            color = Color.BUTTON
         super().__init__(box, color)
         self.text = text
         self.font = font
@@ -525,7 +523,7 @@ class VisualButton(VisualBox):
             x = view_origin.x + self.box.origin.x + (self.box.extent.x // 2) - (text_width // 2)
             y = view_origin.y + self.box.origin.y + (self.box.extent.y // 2) - (text_height // 2)
             if self.highlighted:
-                display.draw_text(self.text, self.font, x, y, Color.BLACK, self.frame_color)
+                display.draw_text(self.text, self.font, x, y, Color.BACKGROUND, self.frame_color)
             else:
                 display.draw_text(self.text, self.font, x, y, self.frame_color)
         else:
@@ -571,6 +569,8 @@ class VisualDragButton(VisualButton):
     # we only draw to fill half the display box
     def draw_on(self, display, view_origin, view_extent):
         self.display_box = Rectangle(Point(self.box.origin.x + view_origin.x, self.box.origin.y + view_origin.y), Point(self.box.extent.x, self.box.extent.y))
+        color = Color.SCROLL
+        fade_to_color = Color.BACKGROUND
         if self.drag_vertical:    # Button visual layout is horizontal, i.e., at the bottom center of the screen
             if self.display_box.top() < 120:
                 draw_box = Rectangle(self.display_box.origin, Point(self.display_box.width(), self.display_box.height() // 2))
@@ -580,13 +580,11 @@ class VisualDragButton(VisualButton):
                 y_range = range(draw_box.bottom() - 1, draw_box.top() - 1, -1)
             width = draw_box.width()
             height = draw_box.height()
+            fade_triple = color.fade_values_to(fade_to_color, height)
             left = draw_box.left()
-            color_index = 128
-            color_offset = 128 // height
             for y in y_range:
-                color = Color(0, 0, color_index).as565()
-                display.screen.hline(left, y, width, color)
-                color_index -= color_offset
+                display.screen.hline(left, y, width, color.as565())
+                color = color.fade_by(fade_triple)
         else:    # Button visual layout is vertical, i.e., at the left or right side of the screen
             if self.display_box.left() < 120:
                 draw_box = Rectangle(self.display_box.origin, Point(self.display_box.width() // 2, self.display_box.height()))
@@ -596,13 +594,11 @@ class VisualDragButton(VisualButton):
                 x_range = range(draw_box.right() - 1, draw_box.left() - 1, -1)
             width = draw_box.width()
             height = draw_box.height()
+            fade_triple = color.fade_values_to(fade_to_color, width)
             top = draw_box.top()
-            color_index = 128
-            color_offset = 128 // width
             for x in x_range:
-                color = Color(0, 0, color_index).as565()
-                display.screen.vline(x, top, height, color)
-                color_index -= color_offset
+                display.screen.vline(x, top, height, color.as565())
+                color = color.fade_by(fade_triple)
 
     # Touch manager callback. Keep track of where the drag started from.
     def handle_touch_drag_start(self, touch_event):
@@ -637,7 +633,9 @@ class VisualDragButton(VisualButton):
 # VisualList is a box with a list of items. The list may be longer than will fit in the space on screen,
 # in which case the user can scroll the list with their finger. Allows selection and double-click.
 class VisualList(VisualBox):
-    def __init__(self, box, items, font, color=Color.WHITE):
+    def __init__(self, box, items, font, color=None):
+        if color is None:
+            color = Color.LIST
         super().__init__(box, color)
         self.items = items
         self.font = font
@@ -663,10 +661,10 @@ class VisualList(VisualBox):
         y = view_origin.y + self.box.origin.y + 2
         for index, item in enumerate(self.visible_items()):
             if self.selected_index is not None and index == (self.selected_index - self.top_index):
-                display.screen.fill_rect(x, y, self.display_box.extent.x - 4, self.font.HEIGHT, self.frame_color)
-                display.draw_text(item, self.font, x, y, Color.BLACK, self.frame_color)
+                display.screen.fill_rect(x, y, self.display_box.extent.x - 4, self.font.HEIGHT, self.frame_color.as565())
+                display.draw_text(item, self.font, x, y, Color.BACKGROUND, self.frame_color)
             else:
-                display.draw_text(item, self.font, x, y, self.frame_color, Color.BLACK)
+                display.draw_text(item, self.font, x, y, self.frame_color, Color.BACKGROUND)
             y += self.font.HEIGHT
 
     # Answer the currently selected item, or None if there isn't one.
@@ -725,10 +723,12 @@ class VisualList(VisualBox):
 # VisualRollerList is like a combo box, except there is no drop down.
 # The user drags vertically to select amongst the items in the list.
 class VisualRollerList(VisualBox):
-    def __init__(self, box, items, font, color=Color.WHITE):
+    def __init__(self, box, items, font, color=None):
+        if color is None:
+            color = Color.LIST
         super().__init__(box, color)
         if len(items) == 0:
-            raise Error('VisualRollerList doesn''t work on an empty list.')
+            raise ValueError('VisualRollerList doesn''t work on an empty list.')
         self.items = items
         self.font = font
         self.selected_index = 0
@@ -740,21 +740,21 @@ class VisualRollerList(VisualBox):
     def draw_on(self, display, view_origin, view_extent):
         super().draw_on(display, view_origin, view_extent)
         peak = self.display_box.top_center() + Point(0, -5)
-        display.screen.line(self.display_box.left(), self.display_box.top(), peak.x, peak.y, self.frame_color)
-        display.screen.line(peak.x, peak.y, self.display_box.right(), self.display_box.top(), self.frame_color)
+        display.screen.line(self.display_box.left(), self.display_box.top(), peak.x, peak.y, self.frame_color.as565())
+        display.screen.line(peak.x, peak.y, self.display_box.right(), self.display_box.top(), self.frame_color.as565())
         peak = self.display_box.bottom_center() + Point(0, 5)
-        display.screen.line(self.display_box.left(), self.display_box.bottom(), peak.x, peak.y, self.frame_color)
-        display.screen.line(peak.x, peak.y, self.display_box.right(), self.display_box.bottom(), self.frame_color)
+        display.screen.line(self.display_box.left(), self.display_box.bottom(), peak.x, peak.y, self.frame_color.as565())
+        display.screen.line(peak.x, peak.y, self.display_box.right(), self.display_box.bottom(), self.frame_color.as565())
         item = self.items[self.selected_index]
         text_height = self.font.HEIGHT
         text_width = display.text_width(item, self.font)
         text_box = Rectangle(self.box.origin, Point(text_width, text_height))
         text_box = text_box.center_in(self.display_box)
         if self.highlighted:
-            display.screen.fill_rect(self.display_box.left(), self.display_box.top(), self.display_box.width(), self.display_box.height(), self.frame_color)
-            display.draw_text(item, self.font, text_box.left(), text_box.top(), Color.BLACK, self.frame_color)
+            display.screen.fill_rect(self.display_box.left(), self.display_box.top(), self.display_box.width(), self.display_box.height(), self.frame_color.as565())
+            display.draw_text(item, self.font, text_box.left(), text_box.top(), Color.BACKGROUND, self.frame_color)
         else:
-            display.draw_text(item, self.font, text_box.left(), text_box.top(), self.frame_color, Color.BLACK)
+            display.draw_text(item, self.font, text_box.left(), text_box.top(), self.frame_color, Color.BACKGROUND)
 
     # Return the currently selected item.
     def selected_item(self):
@@ -803,7 +803,9 @@ class VisualRollerList(VisualBox):
 
 # VisualSlider is like a horizontal scroll bar that the user can drag. Pass in a range, which can have a start, stop, and step value.
 class VisualSlider(VisualBox):
-    def __init__(self, box, item_range, font, color=Color.WHITE):
+    def __init__(self, box, item_range, font, color=None):
+        if color is None:
+            color = Color.LIST
         super().__init__(box, color)
         self.item_range = item_range
         self.font = font
@@ -832,8 +834,8 @@ class VisualSlider(VisualBox):
         self.end_point = self.start_point + Point(inner_box.width() - handle_width, 0)
         handle_position = arduino_map(self.selected_value, self.item_range.start, self.item_range.stop, self.start_point.x, self.end_point.x)
         handle_box = Rectangle(Point(handle_position - handle_offset, inner_box.top()), Point(handle_width, inner_box.height()))
-        display.screen.hline(self.start_point.x, self.start_point.y, inner_box.width() - handle_width, self.frame_color)
-        display.screen.fill_rect(handle_box.left(), handle_box.top(), handle_box.width(), handle_box.height(), self.frame_color)
+        display.screen.hline(self.start_point.x, self.start_point.y, inner_box.width() - handle_width, self.frame_color.as565())
+        display.screen.fill_rect(handle_box.left(), handle_box.top(), handle_box.width(), handle_box.height(), self.frame_color.as565())
 
     # Register for touch manager events.
     def register_for_touch_events(self, touch_manager):
@@ -866,3 +868,33 @@ class VisualSlider(VisualBox):
     def handle_touch_drag_stop(self, touch_event):
         self.click_callback(self.selected_value)
         self.view.redraw(self)
+
+# VisualCanvas is like a VisualBox that clients can draw on. Clients can also register for touch events.
+class VisualCanvas(VisualComponent):
+    def __init__(self, box, draw_callback=None):
+        super().__init__(box.origin)
+        self.box = box
+        self.draw_callback = draw_callback
+
+    # Draw the box. Buttons are subclasses, so also pass in an option inverted flag.
+    def draw_on(self, display, view_origin, view_extent):
+        self.display_box = Rectangle(Point(self.box.origin.x + view_origin.x, self.box.origin.y + view_origin.y), Point(self.box.extent.x, self.box.extent.y))
+        if self.draw_callback is not None:
+            self.draw_callback(display, self.display_box)
+
+    # Return whether the given point (in screen coordinates) is inside the box.
+    def contains_point(self, point):
+        return self.display_box.contains_point(point)
+
+    # Register to get notified when the user touches the button. Callback should take a Point argument.
+    def register_click_handler(self, click_callback):
+        self.click_callback = click_callback
+
+    # Register with the touch manager for touch press and release events.
+    def register_for_touch_events(self, touch_manager):
+        touch_manager.register_interest_in(TouchEvent.TOUCH_RELEASE, self.display_box, self.handle_touch)
+
+    # Callback from the touch manager, call the click handler callback.
+    def handle_touch(self, touch_event):
+        if self.click_callback is not None:
+            self.click_callback(touch_event.touch_point())

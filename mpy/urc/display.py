@@ -1,6 +1,7 @@
 
 from machine import Pin, SPI
 import gc9a01
+from util import *
 import time
 
 
@@ -44,18 +45,28 @@ class Display:
         return self.screen.write_len(font, text)
 
     def clear_screen(self):
-        self.screen.fill(gc9a01.BLACK)
+        self.screen.fill(Color.BACKGROUND.as565())
 
-    def center_text_x(self, text, font, y, color=gc9a01.WHITE):
+    def center_text_x(self, text, font, y, color=None):
+        if color is None:
+            color = Color.LABEL
         text_width = self.screen.write_len(font, text)
         x = (Display.SCREEN_WIDTH // 2) - (text_width // 2)
-        self.screen.write(font, text, x, y, color)
+        self.screen.write(font, text, x, y, color.as565())
 
-    def draw_text(self, text, font, x, y, color=gc9a01.WHITE, back_color=gc9a01.BLACK):
-        self.screen.write(font, text, x, y, color, back_color)
+    def draw_text(self, text, font, x, y, color=None, back_color=None):
+        if color is None:
+            color = Color.LABEL
+        if back_color is None:
+            back_color = Color.BACKGROUND
+        self.screen.write(font, text, x, y, color.as565(), back_color.as565())
 
-    def draw_circle(self, center_x, center_y, radius, color=gc9a01.WHITE):
-        self.screen.circle(center_x, center_y, radius, color)
+    def draw_circle(self, center_x, center_y, radius, color=None):
+        if color is None:
+            color = Color.LABEL
+        self.screen.circle(center_x, center_y, radius, color.as565())
 
-    def fill_circle(self, cx, cy, radius, color=gc9a01.WHITE):
-        self.screen.fill_circle(cx, cy, radius, color)
+    def fill_circle(self, cx, cy, radius, color=None):
+        if color is None:
+            color = Color.LABEL
+        self.screen.fill_circle(cx, cy, radius, color.as565())

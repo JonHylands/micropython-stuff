@@ -6,11 +6,6 @@ from rover_window import RoverWindow
 from roz_window import RozWindow
 from ttrobot_window import TTRobotWindow
 from admin_window import AdminWindow
-from machine import Pin
-import NotoSans_15 as font_15
-import NotoSans_20 as font_20
-import NotoSans_25 as font_25
-import NotoSans_32 as font_32
 import time
 
 
@@ -23,7 +18,7 @@ class Failsafe:
         self.display.jpg('CabraRobot-240.jpg', 0, 0)
         print('JPG Displayed')
         time.sleep_ms(1000)
-        self.display.screen.fill(Color.BLACK)
+        self.display.screen.fill(Color.BACKGROUND.as565())
         print('Screen cleared')
 
         self.window_manager = WindowManager(self.display)
@@ -32,17 +27,28 @@ class Failsafe:
         self.rover = RoverWindow(self.window_manager, self.display)
         self.roz = RozWindow(self.window_manager, self.display)
         self.ttrobot = TTRobotWindow(self.window_manager, self.display)
-        chain = WindowChain('Robots', [self.rover.root_window, self.roz.root_window, self.ttrobot.root_window])
-        self.admin = AdminWindow(self.window_manager, self.display, chain)
-        self.window_manager.push_window(self.admin.window)
+        self.robot_chain = WindowChain('Robots', [self.rover.root_window, self.roz.root_window, self.ttrobot.root_window])
+        self.admin = AdminWindow(self.window_manager, self.display, self.robot_chain)
+        self.admin.register_theme_callback(self.switched_theme)
+        self.admin_chain = WindowChain('Admin', [self.admin.window, self.admin.theme_window])
+        self.window_manager.push_window_chain(self.admin_chain)
 
     def shutdown(self):
         self.window_manager.shutdown()
+
+    def switched_theme(self):
+        self.window_manager.pop_window()
+        self.admin = AdminWindow(self.window_manager, self.display, self.robot_chain)
+        self.admin.register_theme_callback(self.switched_theme)
+        self.admin_chain = WindowChain('Admin', [self.admin.theme_window, self.admin.window])
+        self.window_manager.push_window_chain(self.admin_chain)
 
 
 #=================================================
 
 
+theme = Theme.read_from_file('modern_dark')
+theme.apply()
 
 failsafe = Failsafe()
 
