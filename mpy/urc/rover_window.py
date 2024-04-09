@@ -1,10 +1,12 @@
 from util import *
 from window import *
+from telemetry import Telemetry
 import NotoSans_15 as font_15
 import NotoSans_20 as font_20
 import NotoSans_25 as font_25
 import NotoSans_32 as font_32
 from machine import Pin, Timer, ADC
+from secret import *
 
 
 TRIGGER_PIN = 15
@@ -213,10 +215,14 @@ class RoverMissionWindow:
             return Color.WARNING_LABEL
         return Color.GOOD_LABEL
 
+    def get_telemetry_packet(self, packet):
+        self.mission.process_telemetry_packet(packet)
+
     def about_to_close_run_mission(self, window):
         print('Finished Mission: {}'.format(window.name))
         self.window_manager.enable_screensaver()
         self.update_timer.deinit()
+        self.telemetry.shutdown()
         self.running_mission = False
 
     def clicked_run_mission(self, mission_name):
@@ -227,6 +233,8 @@ class RoverMissionWindow:
         self.trigger_pin = Pin(TRIGGER_PIN, Pin.IN, Pin.PULL_UP)
         self.trigger_connected_pin = Pin(TRIGGER_CONNECTED_PIN, Pin.IN, Pin.PULL_UP)
         self.update_timer = Timer(1, mode=Timer.PERIODIC, freq=10, callback=self.update)
+        self.telemetry = Telemetry(ROVER_MAC_ADDRESS)
+        self.telemetry.register_telemetry_callback(self.get_telemetry_packet)
         self.running_mission = True
 
     def clicked_edit_mission(self, mission_name):
@@ -452,6 +460,11 @@ class RoverMission:
         self.paused = True
         self.run_time = 0
         self.run_time_tenths = 0
+        self.urc_voltage = 3.9
+        self.battery = ADC(Pin(1))
+        self.battery.atten(ADC.ATTN_11DB)  # get the full range 0 - 3.3v
+        self.update_count = 0
+        # Telemetry updated values below
         self.gps_satellite_count = 0
         self.gps_satellite_fix = 0
         self.navigator = 'None'
@@ -461,10 +474,6 @@ class RoverMission:
         self.position = Point(0.0, 0.0)
         self.heading = 0
         self.robot_voltage = 12.4
-        self.urc_voltage = 3.9
-        self.battery = ADC(Pin(1))
-        self.battery.atten(ADC.ATTN_11DB)  # get the full range 0 - 3.3v
-        self.update_count = 0
 
     def update(self):
         self.update_count += 1
@@ -533,6 +542,28 @@ class RoverMission:
 
     def urc_voltage_string(self):
         return 'URC {:.2f}v'.format(self.urc_voltage)
+
+    def process_telemetry_packet(self, packet):
+        if 'rv' in packet:
+            self.robot_voltage = packet['rv']
+        if 'heading' in packet:
+            self.heading = packet['heading']
+        if 'pos' in packet:
+            elements = packet['pos']
+            self.position = Point(elements[0], elements[1])
+        if 'gps_sc' in packet:
+            self.gps_satellite_count = packet['gps_sc']
+        if 'gps_sf' in packet:
+            self.gps_satellite_fix = packet['gps_sf']
+        if 't_pos' in packet:
+            elements = packet['t_pos']
+            self.target_position = Point(elements[0], elements[1])
+        if 't_name' in packet:
+            self.target_name = packet['t_name']
+        if 'nav' in packet:
+            self.navigator = packet['nav']
+        if 'state' in packet:
+            self.current_state = packet['state']
 
 
 class RoverSensorWindow:

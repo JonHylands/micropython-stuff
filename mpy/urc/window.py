@@ -7,6 +7,8 @@ import micropython
 from util import *
 from touch_manager import TouchManager, TouchEvent
 from visual_dialog import *
+import machine
+import esp32
 from machine import Timer
 
 
@@ -38,9 +40,10 @@ class WindowChain:
 
 
 class WindowManager:
-    def __init__(self, display):
+    def __init__(self, display, sleep_callback):
         self.debug = False
         self.display = display
+        self.sleep_callback = sleep_callback
         self.window_stack = []
         self.screensaver_timer = None
         self.screensaver_enabled = True
@@ -213,6 +216,7 @@ class WindowManager:
         self.display.turn_off_screen()
         self.current_window().screensaver_turned_on()
         self.touch_manager.turn_on_screen_with(self.screensaver_cancelled_callback)
+        self.sleep_callback()
 
     # Callback from the touch manager when the user touches a blacked out screen
     # The screensaver was active (screen was off). Turn it back on.

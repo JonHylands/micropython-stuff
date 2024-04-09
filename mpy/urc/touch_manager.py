@@ -1,5 +1,5 @@
 
-
+import machine
 from machine import Pin
 import micropython
 import time
@@ -69,7 +69,7 @@ class TouchManager:
 
     def __init__(self):
         micropython.alloc_emergency_exception_buf(100)
-        self.touch_interrupt = Pin(self.TOUCH_INTERRUPT_PIN, Pin.IN, Pin.PULL_UP)
+        self.touch_interrupt = Pin(self.TOUCH_INTERRUPT_PIN, Pin.IN, Pin.PULL_DOWN)
         # Seeed Studio round display uses a different chip
         self.cst816 = CST816()
         self.touch_type = self.TOUCH_NONE
@@ -94,7 +94,7 @@ class TouchManager:
         self.initialize_touch_fsm()
         self.initialize_registry()
         # On the Seeed Studio round display, you need to use IRQ_FALLING
-        self.touch_interrupt.irq(handler=self.touch_callback, trigger=Pin.IRQ_RISING)
+        self.touch_interrupt.irq(handler=self.touch_callback, trigger=Pin.IRQ_RISING)  # , wake=machine.SLEEP)
 
     # Touch pin ISR callback
     def touch_callback(self, pin):

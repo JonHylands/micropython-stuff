@@ -31,7 +31,7 @@ def get_battery_level(pin):
         time.sleep_us(100)
     millivolts /= 10
     # This is supposed to have a 200K/100K voltage divider, but in reality
-    # the resistors aren't quite that (on my board, the values are off by about 8%)
+    # the resistors aren't quite that (on my board, the values are off by roughly 10%)
     volts = millivolts / 1000 * 3 * (3 / 2.70811)
     return volts
 
@@ -379,7 +379,7 @@ class GpsCoordinate:
     def convert_coordinate(coordinate_string):
         c = coordinate_string.upper()
         sign = 1
-        if c.find('S')>0 or c.find('W')>0:
+        if c.find('S') > 0 or c.find('W') > 0:
             sign = -1
         c = c.replace('N','').replace('E','').replace('S','').replace('W','').replace(',','.').replace(u'°',' ').replace('\'',' ').replace('"',' ')
         a = c.split()
