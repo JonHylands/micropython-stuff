@@ -1,0 +1,7 @@
+
+# XX:XX:XX:XX:XX:XX
+ROVER_MAC_ADDRESS = b'\x00\x00\x00\x00\x00\x00'
+
+# XX:XX:XX:XX:XX:XX
+ROZ_MAC_ADDRESS = b'\x00\x00\x00\x00\x00\x00'
+
