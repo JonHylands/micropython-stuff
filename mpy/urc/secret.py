@@ -1,7 +1,0 @@
-
-# 34:85:18:AB:F6:50
-ROVER_MAC_ADDRESS = b'\x34\x85\x18\xAB\xF6\x50'
-
-# 34:85:18:AB:F6:50
-ROZ_MAC_ADDRESS = b'\x34\x85\x18\xAB\xF6\x50'
-
