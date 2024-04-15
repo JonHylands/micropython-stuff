@@ -6,7 +6,7 @@ import NotoSans_20 as font_20
 import NotoSans_25 as font_25
 import NotoSans_32 as font_32
 from machine import Pin, Timer, ADC
-from secret import *
+from example_secret import *
 
 
 TRIGGER_PIN = 15

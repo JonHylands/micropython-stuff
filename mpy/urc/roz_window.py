@@ -7,7 +7,7 @@ import NotoSans_25 as font_25
 import NotoSans_32 as font_32
 from machine import Pin, Timer, ADC
 import json
-from secret import *
+from example_secret import *
 
 
 class RozWindow:

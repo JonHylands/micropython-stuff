@@ -6,7 +6,7 @@ from display import Display
 import micropython
 from util import *
 from touch_manager import TouchManager, TouchEvent
-from visual_dialog import *
+#from visual_dialog import *
 import machine
 import esp32
 from machine import Timer
