@@ -273,9 +273,9 @@ class RozMission:
 
     def pause_status(self):
         if self.paused:
-            return 'True'
+            return True
         else:
-            return 'False'
+            return False
 
     # Call this at 10Hz
     def increment_run_time_tenths(self):

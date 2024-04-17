@@ -29,7 +29,7 @@ def do_sleep():
 
 class Failsafe:
     def __init__(self):
-        print('Rover Failsafe Handheld')
+        print('Rover Failsafe Handheld by Jon Hylands')
         self.display = Display()
         print('Display initialized')
 

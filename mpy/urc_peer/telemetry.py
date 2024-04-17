@@ -16,6 +16,7 @@ class Telemetry:
         self.esp_now.irq(self.receive_callback)
 
         self.telemetry_callback = None
+        self.return_mac = None
 
     def register_telemetry_callback(self, callback):
         self.telemetry_callback = callback
