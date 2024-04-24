@@ -323,7 +323,7 @@ class RozMission:
         return 'NAV: {}'.format(self.navigator)
 
     def heading_string(self):
-        return 'Heading: {} deg'.format(self.heading)
+        return 'Heading: {:.1f} deg'.format(self.heading)
 
     def robot_voltage_string(self):
         return 'Robot {:.1f}v'.format(self.robot_voltage)
